@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>重庆320路公交优化决策系统</title>
+    <link rel="stylesheet" href="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/css/bootstrap.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c7be5;
+            --secondary-color: #ff6b6b;
+            --bg-gradient: linear-gradient(145deg, #f8f9fa 0%, #e9ecef 100%);
+        }
+
+        body {
+            background: var(--bg-gradient);
+            background-attachment: fixed;
+            min-height: 100vh;
+        }
+
+        .analysis-card {
+            background: rgba(255,255,255,0.98);
+            border-radius: 12px;
+            box-shadow: 0 6px 24px -12px rgba(0,0,0,0.1);
+            margin: 1rem 0;
+            padding: 1.5rem;
+            transition: transform 0.3s ease;
+            border: 1px solid rgba(0,0,0,0.05);
+        }
+
+        .analysis-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 12px 32px -8px rgba(44,123,229,0.15);
+        }
+
+        .nav-tabs .nav-link {
+            border: none;
+            padding: 0.8rem 1.5rem;
+            color: #666;
+            transition: all 0.3s ease;
+        }
+
+        .nav-tabs .nav-link.active {
+            color: var(--primary-color);
+            background: linear-gradient(145deg, rgba(44,123,229,0.05) 0%, rgba(255,255,255,1) 100%);
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        .form-range::-webkit-slider-thumb {
+            background: var(--primary-color);
+            width: 20px;
+            height: 20px;
+            transition: transform 0.2s ease;
+        }
+
+        .form-range::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+            box-shadow: 0 0 0 4px rgba(44,123,229,0.1);
+        }
+
+        .chart-container {
+            height: 500px;
+            margin: 1rem 0;
+            position: relative;
+        }
+
+        .conclusion-panel {
+            background: linear-gradient(145deg, rgba(44,123,229,0.05) 0%, rgba(255,255,255,1) 100%);
+            border-left: 4px solid var(--primary-color);
+            padding: 1.5rem;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<!-- 项目背景 -->
+<div class="container pt-4">
+    <div class="analysis-card">
+        <div class="row align-items-center g-4">
+            <div class="col-md-6">
+                <h1 class="display-6 mb-3">🚌 重庆320路公交优化工程</h1>
+                <div class="progress mb-3" style="height: 8px;">
+                    <div class="progress-bar" style="width: 65%"></div>
+                </div>
+                <div class="row g-3">
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded">
+                            <h5 class="text-primary">18.2 → 23</h5>
+                            <small>目标运营速度(km/h)</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="p-3 bg-light rounded">
+                            <h5 class="text-primary">98.5%</h5>
+                            <small>目标正点率</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <canvas id="timelineChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 现状分析 -->
+<div class="container">
+    <div class="analysis-card">
+        <h3 class="mb-4">🔍 当前运营现状</h3>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="alert alert-danger">
+                    <h5>核心问题</h5>
+                    <ul class="mb-0">
+                        <li>高峰拥挤度：16人/车次</li>
+                        <li>最长停站时间：1分50秒</li>
+                        <li>运营速度：18.2km/h</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <canvas id="problemChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 方案对比 -->
+<div class="container">
+    <div class="analysis-card">
+        <h3 class="mb-4">📊 方案对比分析</h3>
+        <ul class="nav nav-tabs">
+            <li class="nav-item">
+                <a class="nav-link active" data-bs-toggle="tab" href="#solution">方案对比</a>
+            </li>
+            <li class="nav-item">
+                <a class="nav-link" data-bs-toggle="tab" href="#cost">成本分析</a>
+            </li>
+        </ul>
+
+        <div class="tab-content mt-3">
+            <div class="tab-pane fade show active" id="solution">
+                <div class="row g-4">
+                    <div class="col-lg-8">
+                        <div class="chart-container">
+                            <canvas id="comparisonChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="col-lg-4">
+                        <div class="p-3 bg-light rounded">
+                            <h5 class="mb-3">参数调节</h5>
+                            <div class="mb-4">
+                                <label class="form-label d-flex justify-content-between">
+                                    <span>经济权重</span>
+                                    <span class="text-primary" id="weightValue">30%</span>
+                                </label>
+                                <input type="range" class="form-range" 
+                                       id="ecoWeight" min="0" max="50" value="30"
+                                       oninput="updateWeight(this.value)">
+                            </div>
+                            <div class="alert alert-info small p-2">
+                                拖动滑块实时调整经济性评估权重
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="cost">
+                <div class="chart-container">
+                    <canvas id="costChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 数据支撑 -->
+<div class="container">
+    <div class="analysis-card">
+        <h3 class="mb-4">📈 数据支撑体系</h3>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="list-group">
+                    <div class="list-group-item d-flex justify-content-between">
+                        <span>高德API数据</span>
+                        <span class="badge bg-primary">实时更新</span>
+                    </div>
+                    <div class="list-group-item d-flex justify-content-between">
+                        <span>实地调查数据</span>
+                        <span class="badge bg-success">2025.4.19</span>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <canvas id="dataSourceChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 结论 -->
+<div class="container">
+    <div class="analysis-card conclusion-panel">
+        <h3 class="mb-4">🎯 决策结论</h3>
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="p-3 bg-white rounded shadow-sm">
+                    <h5 class="text-success">✔ 首选方案：动态调度</h5>
+                    <ul class="mb-0">
+                        <li>6个月内提升正点率至98.5%</li>
+                        <li>初期投入降低40%</li>
+                        <li>实施难度：低</li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <div class="p-3 bg-white rounded shadow-sm">
+                    <h5 class="text-primary">⏳ 长期规划：线网重组</h5>
+                    <ul class="mb-0">
+                        <li>3年周期提升速度至23km/h</li>
+                        <li>覆盖3个新建社区</li>
+                        <li>年减碳排放45吨</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+        <div class="alert alert-warning mt-4">
+            <strong>建议实施路径：</strong>2025年优先实施方案一，2026年Q2启动方案二试点
+        </div>
+    </div>
+</div>
+
+<script>
+    // 时间轴图表
+    new Chart(document.getElementById('timelineChart'), {
+        type: 'line',
+        data: {
+            labels: ['2025.Q2', '2025.Q3', '2025.Q4', '2026.Q1'],
+            datasets: [{
+                label: '项目进度',
+                data: [25, 45, 65, 85],
+                borderColor: '#2c7be5',
+                tension: 0.4,
+                fill: true
+            }]
+        }
+    });
+
+    // 问题分析雷达图
+    new Chart(document.getElementById('problemChart'), {
+        type: 'radar',
+        data: {
+            labels: ['速度', '准点率', '拥挤度', '能耗'],
+            datasets: [{
+                label: '当前指标',
+                data: [65, 70, 85, 60],
+                backgroundColor: 'rgba(255,107,107,0.2)'
+            }]
+        }
+    });
+
+    // 方案对比雷达图
+    let comparisonChart;
+    function initComparisonChart() {
+        comparisonChart = new Chart(document.getElementById('comparisonChart'), {
+            type: 'radar',
+            data: {
+                labels: ['经济性', '时效性', '可持续性', '实施难度'],
+                datasets: [{
+                    label: '动态调度',
+                    data: [85, 88, 75, 80],
+                    borderColor: '#2c7be5',
+                    backgroundColor: 'rgba(44,123,229,0.1)'
+                }, {
+                    label: '线网重组',
+                    data: [70, 92, 85, 60],
+                    borderColor: '#ff6b6b',
+                    backgroundColor: 'rgba(255,107,107,0.1)'
+                }]
+            },
+            options: {
+                scales: { r: { beginAtZero: true, max: 100 } }
+            }
+        });
+    }
+
+    // 成本分析柱状图
+    new Chart(document.getElementById('costChart'), {
+        type: 'bar',
+        data: {
+            labels: ['初期投入', '年运营成本', '维护费用'],
+            datasets: [{
+                label: '动态调度',
+                data: [80, 60, 45],
+                backgroundColor: '#2c7be5'
+            }, {
+                label: '线网重组',
+                data: [120, 75, 65],
+                backgroundColor: '#ff6b6b'
+            }]
+        }
+    });
+
+    // 数据来源饼图
+    new Chart(document.getElementById('dataSourceChart'), {
+        type: 'pie',
+        data: {
+            labels: ['API数据', '调查数据', '预测模型'],
+            datasets: [{
+                data: [45, 35, 20],
+                backgroundColor: ['#2c7be5', '#ff6b6b', '#6c5dd3']
+            }]
+        }
+    });
+
+    // 滑块交互
+    function updateWeight(value) {
+        document.getElementById('weightValue').textContent = value + '%';
+        const weight = value / 100;
+        
+        comparisonChart.data.datasets[0].data[0] = 85 * weight;
+        comparisonChart.data.datasets[1].data[0] = 70 * weight;
+        comparisonChart.update();
+    }
+
+    // 初始化
+    initComparisonChart();
+</script>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/twitter-bootstrap/5.1.3/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
